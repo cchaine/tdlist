@@ -1,2 +1,2 @@
-# to-dev
-to-do lister
+# tdlist
+to do list
