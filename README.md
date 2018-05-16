@@ -1,2 +1,2 @@
-# tdlist
-to do list
+# tdlist - Manage tasks within your development directory
+
