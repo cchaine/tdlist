@@ -24,4 +24,6 @@ The most commonly used tdlist commands are:
   type  Set the type of a task
   close Close a task
   rm    Remove a task
+
+See 'tdlist help <command>' for more information on a specific command.
 ```
