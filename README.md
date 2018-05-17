@@ -6,7 +6,7 @@ Use your terminal to manage task within your project directory.
 ## Install
 
 ```
-git clone 
+git clone https://github.com/cchaine/tdlist.git
 cd tdlist
 cmake .
 make install
