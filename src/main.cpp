@@ -4,9 +4,11 @@
 #include <sstream>
 #include <vector>
 #include "termcolor.hpp"
+#include "task.h"
 
 std::fstream file;
-std::vector<std::string> * tasks;
+std::vector<Task> tasks;
+int hashValue = -1;
 
 void printUsage(std::string msg) {
     std::cout << termcolor::yellow << "usage: " << termcolor::reset << msg << std::endl;
@@ -23,29 +25,34 @@ void printInfo(std::string msg) {
 void load() {
     file.open(".tdlist", std::ios::in);
     std::string line;
+    
+    std::getline(file, line);
+    if(strlen(line.c_str()) > 0){
+        hashValue = stoi(line.substr(line.find("|")+1));
+    }
+
     while(std::getline(file, line)){
-        tasks->push_back(line);
+        std::string title = line.substr(0, line.find("::"));
+        bool status = stoi(line.substr(line.find("::")+2, 1));
+        char type = line[line.find("::")+3];
+        int hash = stoi(line.substr(line.find("|") + 1));
+        tasks.push_back(Task(title, hash, status, type));
     }
     file.close();
 }
 
-std::string getHashValue() {
-    std::string value = tasks->at(0).substr(tasks->at(0).find("|")+1);
-    tasks->at(0) = "tdlist|" + std::to_string(std::stoi(value)+1);
-    return value;
-}
-
 void write() {
     file.open(".tdlist", std::ios::out);
-    for(int i = 0; i < tasks->size(); i++) {
-        file << tasks->at(i) << std::endl;
+    file << "tdlist|" + std::to_string(hashValue) << std::endl;
+    for(int i = 0; i < tasks.size(); i++) {
+        file << tasks[i].title() + "::" + std::to_string(tasks[i].status()) + tasks[i].type() + "|" + std::to_string(tasks[i].hash()) << std::endl;
     }
     file.close();
 }
 
 void init() {
    load();
-   if(tasks->size() != 0){
+   if(tasks.size() != 0){
        printFatal("tdlist project already initialized");
        exit(-1);
    }
@@ -55,46 +62,41 @@ void init() {
 }
 
 void checkInit() {
-    if(tasks->size() == 0){
+    if(hashValue == -1){
         printFatal("not a tdlist project directory");
         exit(-1);
     }
 }
 
 int find(std::string task) {
-   int counter = 0;
-   for(int i = 1; i < tasks->size(); i++) {
-        std::string bufferTitle = tasks->at(i).substr(0, tasks->at(i).find("::"));
-        if(!strcmp(bufferTitle.c_str(), task.c_str())){
+    for(int i = 0; i < tasks.size(); i++) {
+        if(!strcmp(tasks[i].title().c_str(), task.c_str())){
             return i;
+        } else {
+            if(!strcmp(std::to_string(tasks[i].hash()).c_str(), task.c_str())) {
+                return i;
+            }
         }
-   }
-   return -1;
-}
-
-void open(std::string title) {
-    load();
-    checkInit();
-    if(find(title) == -1) {
-        tasks->push_back(title + "::0u" + "|" + getHashValue());
-    } else if(tasks->at(find(title))[tasks->at(find(title)).find("::") + 2] == '1') {
-        tasks->erase(tasks->begin() + find(title));
-        tasks->push_back(title + "::0u" + "|" + getHashValue());
-    } else {
-        printFatal(title + " already exists");
-        exit(-1);
     }
-    write();
+    return -1;
 }
 
 void open(std::string title, char type) {
     load();
     checkInit();
+
+    if(title.find_first_not_of("0123456789") == std::string::npos) {
+        printFatal("task title cannot be only digits");
+        exit(-1);
+    }
+
     if(find(title) == -1) {
-        tasks->push_back(title + "::0" + type + "|" + getHashValue());
-    } else if(tasks->at(find(title))[tasks->at(find(title)).find("::") + 2] == '1') {
-        tasks->erase(tasks->begin() + find(title));
-        tasks->push_back(title + "::0" + type + "|" + getHashValue());
+        tasks.push_back(Task(title, hashValue, type));
+        hashValue++;
+    } else if(tasks[find(title)].status()) {
+        tasks.erase(tasks.begin() + find(title));
+        tasks.push_back(Task(title, hashValue, type));
+        hashValue++;
     } else {
         printFatal(title + " already exist");
         exit(-1);
@@ -102,33 +104,26 @@ void open(std::string title, char type) {
     write();
 }
 
-void rm(std::string title) {
-    load();
-    checkInit();
-    int taskIndex = find(title);
-    if(taskIndex != -1) {
-        tasks->erase(tasks->begin() + taskIndex);
-        printInfo("removed " + title);
-    } else {
-        printFatal(title + " doesn't exist");
-    }
-    write();
+void open(std::string title) {
+    open(title, 'u');
 }
 
-void rm(std::vector<std::string> titles[]) {
+void rm(std::vector<std::string> *titles) {
     load();
     checkInit();
+    
     bool allExists = true;
     for(int i = 0; i < titles->size(); i++) {
-        if(find(titles->at(i)) == -1) {
+        if(find((*titles)[i]) == -1) {
             allExists = false;
-            printFatal(titles->at(i) + " doesn't exist");
+            printFatal((*titles)[i] + " doesn't exist");
         }
     }
+
     if(allExists) {
         for(int i = 0; i < titles->size(); i++) {
-            tasks->erase(tasks->begin() + find(titles->at(i)));
-            printInfo("removed " + titles->at(i));
+            tasks.erase(tasks.begin() + find((*titles)[i]));
+            printInfo("removed " + (*titles)[i]);
         }
     } else {
         exit(-1);
@@ -136,17 +131,22 @@ void rm(std::vector<std::string> titles[]) {
     write();
 }
 
+void rm(std::string title) {
+    std::vector<std::string> titles = std::vector<std::string>();
+    titles.push_back(title);
+    rm(&titles);
+}
+
 void list() {
     load();
     checkInit();
-    if(tasks->size() == 1) {
+    if(hashValue != -1 && tasks.size() == 0) {
         printInfo("list empty");
     }
 
     bool anyOpened = false;
-    for(int i = 1; i < tasks->size(); i++) {
-        int divider = tasks->at(i).find("::") + 2;
-        if(!strcmp(tasks->at(i).substr(divider, 1).c_str(), "0")) {
+    for(int i = 0; i < tasks.size(); i++) {
+        if(!tasks[i].status()) {
             anyOpened = true;
         }
     }
@@ -154,38 +154,24 @@ void list() {
         std::cout << "Opened tasks:" << std::endl;
         std::cout << " (use \"tdlist open (-<type>) <name>\" to open a new task)" << std::endl << std::endl;
     }
-    //errors
-    for(int i = 1; i < tasks->size(); i++) {
-        int divider = tasks->at(i).find("::") + 2;
-        if(!strcmp(tasks->at(i).substr(divider, 2).c_str(), "0e")) {
-            std::cout << termcolor::red << termcolor::dark << termcolor::bold << "#" << tasks->at(i).substr(tasks->at(i).find("|")+1) << termcolor::reset << termcolor::red << "\t" << tasks->at(i).substr(0, divider-2) << termcolor::reset << std::endl;
-        }
-    }
-    //improvements
-    for(int i = 1; i < tasks->size(); i++){
-        int divider = tasks->at(i).find("::") + 2;
-        if(!strcmp(tasks->at(i).substr(divider, 2).c_str(), "0i")) {
-            std::cout << termcolor::green << termcolor::dark << termcolor::bold << "#" << tasks->at(i).substr(tasks->at(i).find("|")+1) << termcolor::reset << termcolor::green << "\t" << tasks->at(i).substr(0, divider-2) << termcolor::reset << std::endl;
-        }
-    }
-    //features
-    for(int i = 1; i < tasks->size(); i++){
-        int divider = tasks->at(i).find("::") + 2;
-        if(!strcmp(tasks->at(i).substr(divider, 2).c_str(), "0f")) {
-            std::cout << termcolor::blue << termcolor::dark << termcolor::bold << "#" << tasks->at(i).substr(tasks->at(i).find("|")+1) << termcolor::reset << termcolor::blue << "\t" << tasks->at(i).substr(0, divider-2) << termcolor::reset << std::endl;
-        }
-    }
-    for(int i = 1; i < tasks->size(); i++) {
-        int divider = tasks->at(i).find("::") + 2;
-        if(!strcmp(tasks->at(i).substr(divider, 2).c_str(), "0u")) {
-            std::cout << termcolor::white << termcolor::dark << termcolor::bold << "#" << tasks->at(i).substr(tasks->at(i).find("|")+1) << termcolor::reset << termcolor::white << "\t" << tasks->at(i).substr(0, divider-2) << termcolor::reset << std::endl;
+
+    for(int i = 0; i < tasks.size(); i++) {
+        if(!tasks[i].status()) {
+            if(tasks[i].type() == 'e') {
+                std::cout << termcolor::red << termcolor::dark << termcolor::bold << "#" << tasks[i].hash() << termcolor::reset << termcolor::red << "\t" << tasks[i].title() << termcolor::reset << std::endl;
+            } else if(tasks[i].type() == 'i') {
+                std::cout << termcolor::green << termcolor::dark << termcolor::bold << "#" << tasks[i].hash() << termcolor::reset << termcolor::green << "\t" << tasks[i].title() << termcolor::reset << std::endl;
+            } else if(tasks[i].type() == 'f') {
+                std::cout << termcolor::blue<< termcolor::dark << termcolor::bold << "#" << tasks[i].hash() << termcolor::reset << termcolor::blue << "\t" << tasks[i].title() << termcolor::reset << std::endl;
+            } else if(tasks[i].type() == 'u') {
+                std::cout << termcolor::white << termcolor::dark << termcolor::bold << "#" << tasks[i].hash() << termcolor::reset << termcolor::white << "\t" << tasks[i].title() << termcolor::reset << std::endl;
+            }
         }
     }
 
     bool anyClosed = false;
-    for(int i = 1; i < tasks->size(); i++) {
-        int divider = tasks->at(i).find("::") + 2;
-        if(!strcmp(tasks->at(i).substr(divider, 1).c_str(), "1")) {
+    for(int i = 0; i < tasks.size(); i++) {
+        if(tasks[i].status()) {
             anyClosed = true;
         }
     }
@@ -193,30 +179,19 @@ void list() {
         std::cout << std::endl << "Closed tasks:" << std::endl;
         std::cout << " (use \"tdlist close <name>\" to close a task)" << std::endl << std::endl;
     }
-    for(int i = 1; i < tasks->size(); i++){
-        int divider = tasks->at(i).find("::") + 2;
-        if(!strcmp(tasks->at(i).substr(divider, 1).c_str(), "1")) {
-            std::cout << termcolor::grey << termcolor::dark << termcolor::bold << "#" << tasks->at(i).substr(tasks->at(i).find("|")+1) << termcolor::reset << termcolor::grey << "\t" << tasks->at(i).substr(0, divider-2) << termcolor::reset << std::endl;
+    for(int i = 0; i < tasks.size(); i++) {
+        if(tasks[i].status()) {
+            std::cout << termcolor::grey << termcolor::dark << termcolor::bold << "#" << tasks[i].hash() << termcolor::reset << termcolor::grey << "\t" << tasks[i].title() << termcolor::reset << std::endl;
         }
     }
     std::cout << std::endl;
 }
 
-std::string updateTaskParam(std::string title, int paramIndex, char value) {
-    int taskIndex = find(title);
-    std::string newTask = title;
-    std::string task = tasks->at(taskIndex);
-    int divider = task.find("::") + 2;
-    newTask += "::" + task.substr(divider, paramIndex) + value + task.substr(divider + paramIndex + 1, task.find("|"));
-    return newTask;
-}
-
 void close(std::string title) {
     load();
     checkInit();
-    int taskIndex = find(title);
-    if(taskIndex != -1) {
-        tasks->at(taskIndex) = updateTaskParam(title, 0, '1');
+    if(find(title) != -1) {
+        tasks[find(title)].setStatus(1);
         printInfo(title + " closed");
     } else {
         printFatal(title + " doesn't exists");
@@ -228,26 +203,18 @@ void close(std::string title) {
 void type(std::string title, char type) {
     load();
     checkInit();
-    int taskIndex = find(title);
-    if(taskIndex != -1 && (type == 'u' || type == 'i' || type == 'e' || type == 'f')) {
-        tasks->at(taskIndex) = updateTaskParam(title, 1, type);
+    if(find(title) != -1) {
+        tasks[find(title)].setType(type);
         printInfo("switched type for " + title);
-    } else if(type != 'u' && type != 'i' && type != 'e' && type != 'f'){
-        printFatal("unknown type:");
-        std::cout << "\t" << "e error" << std::endl;
-        std::cout << "\t" << "i improvement" << std::endl;
-        std::cout << "\t" << "f feature" << std::endl;
-        std::cout << "\t" << "u untyped" << std::endl << std::endl;
     } else {
         printFatal(title + " doesn't exists");
     }
     write();
 }
 
-
 int main(int argc, char * argv[]) {
-    tasks = new std::vector<std::string>();
-    
+    tasks = std::vector<Task>();
+
     if(argc == 1) {
         list();
 
@@ -296,9 +263,17 @@ int main(int argc, char * argv[]) {
 
     } else if(!strcmp(argv[1], "type")) {
         if(argc == 4) {
-            type(argv[2], argv[3][0]);
+            if(argv[2][0] != 'u' && argv[2][0] != 'i' && argv[2][0] != 'e' && argv[2][0] != 'f'){
+                printFatal("unknown type:");
+                std::cout << "\t" << "e error" << std::endl;
+                std::cout << "\t" << "i improvement" << std::endl;
+                std::cout << "\t" << "f feature" << std::endl;
+                std::cout << "\t" << "u untyped" << std::endl << std::endl;
+            }
+
+            type(argv[3], argv[2][0]);
         } else {
-            printUsage("tdlist type <name> <type>");
+            printUsage("tdlist type <type> <name>");
         }
     } else {
         printUsage("tdlist --help to list commands");

@@ -1,11 +1,21 @@
 #include "task.h"
+#include <iostream>
 
-Task::Task(std::string title) {
+Task::Task(std::string title, int hash) {
     this->m_title = title;
+    this->m_hash = hash;
 }
 
-Task::Task(std::string title, TYPE type) {
+Task::Task(std::string title, int hash, char type) {
     this->m_title = title;
+    this->m_hash = hash;
+    this->m_type = type;
+}
+
+Task::Task(std::string title, int hash, bool status, char type) {
+    this->m_title = title;
+    this->m_hash = hash;
+    this->m_status = status;
     this->m_type = type;
 }
 
@@ -27,4 +37,16 @@ std::string Task::title() {
 
 void Task::setTitle(std::string title) {
     this->m_title = title;
+}
+
+int Task::hash() {
+    return this->m_hash;
+}
+
+char Task::type() {
+    return this->m_type;
+}
+
+void Task::setType(char type) {
+    this->m_type = type;
 }
