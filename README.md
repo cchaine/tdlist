@@ -1,7 +1,7 @@
 # tdlist
 
 Use your terminal to manage task within your project directory.
-`tdlist`war created by [cchaine].
+`tdlist`war created by [Clément Chaine].
 
 ![alt text](https://user-images.githubusercontent.com/18381262/40177867-13c0c538-59e0-11e8-8b12-57c94d475b97.png)
 
