@@ -216,8 +216,10 @@ int main(int argc, char * argv[]) {
     tasks = std::vector<Task>();
 
     if(argc == 1) {
-        list();
+        printUsage("tdlist <command> [<args>]");
 
+    } else if(!strcmp(argv[1], "list")) {
+        list();  
     } else if(!strcmp(argv[1], "init")) {
         init();
 
