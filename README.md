@@ -1,6 +1,6 @@
 # tdlist
 
-Use your terminal to manage task within your project directory.
+Use your terminal to manage tasks within your project directory.
 
 `tdlist`was created by [Clément Chaine](https://github.com/cchaine).
 
